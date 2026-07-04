@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { useCartStore } from "@/lib/store";
@@ -113,81 +114,83 @@ export default function Home() {
             <WishlistHeart productId={product.id} size="sm" />
           </div>
 
-          <div className="relative mb-5 flex aspect-square w-full items-center justify-center overflow-hidden rounded-[1.25rem] border border-border bg-white p-6">
-            {outOfStock && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
-                <span className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-paper">
-                  <PackageX className="h-3.5 w-3.5" /> Out of Stock
-                </span>
-              </div>
-            )}
-            <Image
-              src={product.image}
-              alt={product.name}
-              fill
-              sizes="(max-width: 768px) 45vw, 22vw"
-              className="object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105"
-            />
-          </div>
+          <Link href={`/product/${product.id}`} className="contents">
+            <div className="relative mb-5 flex aspect-square w-full items-center justify-center overflow-hidden rounded-[1.25rem] border border-border bg-white p-6">
+              {outOfStock && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-[1px]">
+                  <span className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-bold text-paper">
+                    <PackageX className="h-3.5 w-3.5" /> Out of Stock
+                  </span>
+                </div>
+              )}
+              <Image
+                src={product.image}
+                alt={product.name}
+                fill
+                sizes="(max-width: 768px) 45vw, 22vw"
+                className="object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105"
+              />
+            </div>
 
-          <div className="flex flex-1 flex-col">
-            <div className="mb-1.5 flex items-center justify-between">
-              <p className="font-mono-tag text-[11px] font-semibold uppercase tracking-widest text-leaf">
-                {product.category}
-              </p>
-              {lowStock && (
-                <span className="rounded-full bg-haldi/20 px-2 py-0.5 text-[10px] font-bold text-haldi-deep">
-                  Sirf {product.stock} bache
-                </span>
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <p className="font-mono-tag text-[11px] font-semibold uppercase tracking-widest text-leaf">
+                  {product.category}
+                </p>
+                {lowStock && (
+                  <span className="rounded-full bg-haldi/20 px-2 py-0.5 text-[10px] font-bold text-haldi-deep">
+                    Sirf {product.stock} bache
+                  </span>
+                )}
+              </div>
+              <h3 className="mb-1 line-clamp-2 font-display text-lg font-bold leading-tight text-ink transition-colors group-hover:text-leaf-deep">
+                {product.name}
+              </h3>
+
+              {ratingStats[product.id] && (
+                <div className="mb-2 flex items-center gap-1.5">
+                  <StarRating value={ratingStats[product.id].avg} size="sm" />
+                  <span className="text-xs font-semibold text-ink-soft">
+                    ({ratingStats[product.id].count})
+                  </span>
+                </div>
               )}
             </div>
-            <h3 className="mb-1 line-clamp-2 font-display text-lg font-bold leading-tight text-ink">
-              {product.name}
-            </h3>
+          </Link>
 
-            {ratingStats[product.id] && (
-              <div className="mb-2 flex items-center gap-1.5">
-                <StarRating value={ratingStats[product.id].avg} size="sm" />
-                <span className="text-xs font-semibold text-ink-soft">
-                  ({ratingStats[product.id].count})
-                </span>
-              </div>
-            )}
+          <div className="mt-auto pt-4">
+            <div className="mb-3 font-mono-tag">
+              {product.is_offer && product.original_price ? (
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium text-ink-soft line-through">
+                    Rs. {product.original_price}
+                  </span>
+                  <span className="text-2xl font-bold text-chili">Rs. {product.price}</span>
+                </div>
+              ) : (
+                <span className="text-2xl font-bold text-ink">Rs. {product.price}</span>
+              )}
+            </div>
 
-            <div className="mt-auto pt-4">
-              <div className="mb-3 font-mono-tag">
-                {product.is_offer && product.original_price ? (
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium text-ink-soft line-through">
-                      Rs. {product.original_price}
-                    </span>
-                    <span className="text-2xl font-bold text-chili">Rs. {product.price}</span>
-                  </div>
-                ) : (
-                  <span className="text-2xl font-bold text-ink">Rs. {product.price}</span>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between gap-2">
-                {!outOfStock && (
-                  <QuantityStepper
-                    value={qty}
-                    onChange={setQty}
-                    max={product.stock ?? Infinity}
-                    size="sm"
-                  />
-                )}
-                <button
-                  onClick={() => handleAddToCart(product, qty)}
-                  disabled={outOfStock}
-                  className={`flex h-11 flex-1 shrink-0 items-center justify-center gap-1.5 rounded-full text-sm font-bold shadow-sm transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 ${
-                    inCart ? "bg-leaf text-paper" : "bg-ink text-paper hover:bg-leaf-deep"
-                  }`}
-                >
-                  {inCart ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                  {inCart ? "Cart mein hai" : "Add"}
-                </button>
-              </div>
+            <div className="flex items-center justify-between gap-2">
+              {!outOfStock && (
+                <QuantityStepper
+                  value={qty}
+                  onChange={setQty}
+                  max={product.stock ?? Infinity}
+                  size="sm"
+                />
+              )}
+              <button
+                onClick={() => handleAddToCart(product, qty)}
+                disabled={outOfStock}
+                className={`flex h-11 flex-1 shrink-0 items-center justify-center gap-1.5 rounded-full text-sm font-bold shadow-sm transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 ${
+                  inCart ? "bg-leaf text-paper" : "bg-ink text-paper hover:bg-leaf-deep"
+                }`}
+              >
+                {inCart ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                {inCart ? "Cart mein hai" : "Add"}
+              </button>
             </div>
           </div>
         </div>
