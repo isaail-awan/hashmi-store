@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Trash2, ArrowLeft, MapPin, ShoppingBasket, MessageCircle, Clock3 } from "lucide-react";
+import { Trash2, ArrowLeft, MapPin, ShoppingBasket, MessageCircle, Clock3, LogIn } from "lucide-react";
 import { useCartStore } from "@/lib/store";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -18,6 +18,9 @@ export default function CartPage() {
 
   const totalAmount = cart.reduce((total, item) => total + item.price * item.quantity, 0);
 
+  const [session, setSession] = useState<any>(null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
@@ -27,8 +30,31 @@ export default function CartPage() {
 
   const DELIVERY_SLOTS = ["Jaldi se jaldi", "Aaj Shaam (4pm-8pm)", "Kal Subah (9am-12pm)"];
 
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      if (session?.user?.email) {
+        setName((n) => n || session.user.user_metadata?.full_name || "");
+      }
+      setIsCheckingSession(false);
+    };
+    checkSession();
+
+    // Login/logout kisi doosre tab me ho to yahan bhi turant reflect ho
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!session) {
+      toast.error("Order place karne ke liye pehle login karein.");
+      return;
+    }
 
     if (!address.toLowerCase().includes("pindi") && !address.toLowerCase().includes("rawalpindi")) {
       toast.error("Sorry! Delivery is only in Rawalpindi");
@@ -37,12 +63,6 @@ export default function CartPage() {
 
     setIsSubmitting(true);
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    const customerEmail = session ? session.user.email : "Guest Order";
-
     const orderData = {
       customer_name: name,
       customer_phone: phone,
@@ -50,7 +70,7 @@ export default function CartPage() {
       total_amount: totalAmount,
       items: cart,
       status: "Pending",
-      user_email: customerEmail,
+      user_email: session.user.email,
       delivery_slot: deliverySlot,
     };
 
@@ -187,72 +207,103 @@ export default function CartPage() {
                 <h2 className="mb-6 font-display text-2xl font-bold tracking-tight text-ink">
                   Checkout Details
                 </h2>
-                <form onSubmit={handleCheckout} className="mb-2 space-y-4">
-                  <input
-                    type="text"
-                    placeholder="Aapka Mukammal Naam"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-white px-4 py-3 outline-none transition-all focus:border-leaf focus:ring-1 focus:ring-leaf"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Phone Number (e.g. 03001234567)"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full rounded-xl border border-border bg-white px-4 py-3 outline-none transition-all focus:border-leaf focus:ring-1 focus:ring-leaf"
-                  />
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-3 h-5 w-5 text-ink-soft" />
-                    <textarea
-                      placeholder="Delivery Address (Sirf Rawalpindi/Pindi)"
-                      required
-                      rows={3}
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      className="w-full resize-none rounded-xl border border-border bg-white py-3 pl-10 pr-4 outline-none transition-all focus:border-leaf focus:ring-1 focus:ring-leaf"
-                    />
-                  </div>
 
-                  <div>
-                    <label className="mb-2 flex items-center gap-1.5 text-sm font-bold text-ink">
-                      <Clock3 className="h-4 w-4 text-leaf" /> Delivery Time
-                    </label>
-                    <div className="grid grid-cols-1 gap-2">
-                      {DELIVERY_SLOTS.map((slot) => (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => setDeliverySlot(slot)}
-                          className={`rounded-xl border-2 px-4 py-2.5 text-left text-sm font-semibold transition-all ${
-                            deliverySlot === slot
-                              ? "border-leaf bg-leaf-light text-leaf-deep"
-                              : "border-border bg-white text-ink-soft hover:border-leaf/40"
-                          }`}
-                        >
-                          {slot}
-                        </button>
-                      ))}
+                {isCheckingSession ? (
+                  <div className="flex items-center justify-center py-10">
+                    <div className="h-6 w-6 animate-spin rounded-full border-4 border-leaf/20 border-t-leaf" />
+                  </div>
+                ) : !session ? (
+                  <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border bg-paper px-6 py-10 text-center">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-leaf/30 bg-leaf-light">
+                      <LogIn className="h-6 w-6 text-leaf-deep" />
                     </div>
+                    <div>
+                      <p className="mb-1 font-display text-lg font-bold text-ink">
+                        Order karne ke liye login karein
+                      </p>
+                      <p className="text-sm font-medium text-ink-soft">
+                        Aapki tokri mehfooz hai — login karke seedha checkout pe wapas aa jayenge.
+                      </p>
+                    </div>
+                    <div className="mb-2 flex items-end justify-between w-full border-t-2 border-dashed border-border pt-4">
+                      <span className="font-bold text-ink">Total Bill</span>
+                      <span className="font-mono-tag text-2xl font-bold text-chili">Rs. {totalAmount}</span>
+                    </div>
+                    <Link
+                      href="/profile"
+                      className="w-full rounded-full bg-ink py-3.5 font-display font-bold text-paper shadow-md transition-all hover:bg-leaf-deep active:scale-[0.98]"
+                    >
+                      Login / Sign Up
+                    </Link>
                   </div>
+                ) : (
+                  <form onSubmit={handleCheckout} className="mb-2 space-y-4">
+                    <input
+                      type="text"
+                      placeholder="Aapka Mukammal Naam"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-white px-4 py-3 outline-none transition-all focus:border-leaf focus:ring-1 focus:ring-leaf"
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Phone Number (e.g. 03001234567)"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-white px-4 py-3 outline-none transition-all focus:border-leaf focus:ring-1 focus:ring-leaf"
+                    />
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-3 h-5 w-5 text-ink-soft" />
+                      <textarea
+                        placeholder="Delivery Address (Sirf Rawalpindi/Pindi)"
+                        required
+                        rows={3}
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        className="w-full resize-none rounded-xl border border-border bg-white py-3 pl-10 pr-4 outline-none transition-all focus:border-leaf focus:ring-1 focus:ring-leaf"
+                      />
+                    </div>
 
-                  <div className="mt-6 flex items-end justify-between border-t-2 border-dashed border-border pt-4">
-                    <span className="font-bold text-ink">Total Bill</span>
-                    <span className="font-mono-tag text-3xl font-bold text-chili">
-                      Rs. {totalAmount}
-                    </span>
-                  </div>
+                    <div>
+                      <label className="mb-2 flex items-center gap-1.5 text-sm font-bold text-ink">
+                        <Clock3 className="h-4 w-4 text-leaf" /> Delivery Time
+                      </label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {DELIVERY_SLOTS.map((slot) => (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => setDeliverySlot(slot)}
+                            className={`rounded-xl border-2 px-4 py-2.5 text-left text-sm font-semibold transition-all ${
+                              deliverySlot === slot
+                                ? "border-leaf bg-leaf-light text-leaf-deep"
+                                : "border-border bg-white text-ink-soft hover:border-leaf/40"
+                            }`}
+                          >
+                            {slot}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="mt-6 w-full rounded-full bg-ink py-4 font-display text-lg font-bold text-paper shadow-md transition-all hover:bg-leaf-deep active:scale-[0.98] disabled:opacity-70"
-                  >
-                    {isSubmitting ? "Processing..." : "Confirm Order (COD)"}
-                  </button>
-                </form>
+                    <div className="mt-6 flex items-end justify-between border-t-2 border-dashed border-border pt-4">
+                      <span className="font-bold text-ink">Total Bill</span>
+                      <span className="font-mono-tag text-3xl font-bold text-chili">
+                        Rs. {totalAmount}
+                      </span>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="mt-6 w-full rounded-full bg-ink py-4 font-display text-lg font-bold text-paper shadow-md transition-all hover:bg-leaf-deep active:scale-[0.98] disabled:opacity-70"
+                    >
+                      {isSubmitting ? "Processing..." : "Confirm Order (COD)"}
+                    </button>
+                  </form>
+                )}
               </div>
             </Reveal>
           </div>
